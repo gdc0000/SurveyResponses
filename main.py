@@ -3,72 +3,95 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
-# Set up the Streamlit page
-st.set_page_config(page_title="Survey: Demographics & Big Five", page_icon=":bar_chart:")
-st.title("Survey: Demographics & Big Five Personality Traits")
-st.markdown("Please fill in the survey below. Your responses will be securely recorded.")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Identity Survey", page_icon=":bar_chart:")
 
-# --- CONNECT TO GOOGLE SHEETS ---
-# Define the scope for Google Sheets and Google Drive API access
+# --- GOOGLE SHEETS SETUP ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-
-# Load credentials from st.secrets (make sure you add your service account JSON in Streamlit secrets)
-creds_dict = st.secrets["google_sheets"]
+creds_dict = st.secrets["google_sheets"]  # Make sure you have your credentials in Streamlit secrets
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# Open your Google Sheet by name; update the sheet name if necessary
+# Replace "Survey Responses" with your actual Google Sheet name.
 sheet = client.open("Survey Responses").sheet1
 
-# --- DEFINE SURVEY QUESTIONS ---
-# Likert scale options for Big Five items
-likert_scale = ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"]
+# --- DEMOGRAPHIC QUESTIONS ---
+st.title("Identity Survey")
 
-# Define sample Big Five items (10 items, 2 per trait as an example)
-big5_questions = {
-    "q1": "I am the life of the party.",                      # Extraversion
-    "q2": "I feel little concern for others.",                # Agreeableness (reversed)
-    "q3": "I am always prepared.",                            # Conscientiousness
-    "q4": "I get stressed out easily.",                       # Neuroticism
-    "q5": "I have a rich vocabulary.",                        # Openness
-    "q6": "I enjoy social gatherings.",                       # Extraversion
-    "q7": "I make plans and stick to them.",                  # Conscientiousness
-    "q8": "I am not interested in abstract ideas.",           # Openness (reversed)
-    "q9": "I sympathize with others' feelings.",              # Agreeableness
-    "q10": "I rarely feel anxious or depressed."             # Neuroticism (reversed)
+st.markdown("### Demographics")
+name = st.text_input("Your Name (Optional)")
+age = st.number_input("Age", min_value=10, max_value=100, value=25)
+country = st.text_input("Country of Residence", value="USA")
+
+st.markdown("---")
+
+# --- 7-POINT LIKERT OPTIONS ---
+# We'll store the label → numeric mapping in a dict:
+likert_map = {
+    "Strongly Disagree": 1,
+    "Somewhat Disagree": 2,
+    "Slightly Disagree": 3,
+    "Neither agree nor disagree": 4,
+    "Slightly Agree": 5,
+    "Somewhat Agree": 6,
+    "Strongly Agree": 7
 }
 
-# --- BUILD THE SURVEY FORM ---
+# We'll use the keys (text labels) for the radio display.
+likert_options = list(likert_map.keys())
+
+# --- SURVEY QUESTIONS ---
+st.markdown("### Please rate how much you agree or disagree with each statement:")
+
+survey_questions = [
+    "I love the United States.",
+    "Being an American is an important part of my identity.",
+    "It is important to me to contribute to the United States.",
+    "It is important to me to view myself as an American.",
+    "I am strongly committed to the United States.",
+    "It is important to me that everyone will see me as an American.",
+    "It is important for me to serve my country.",
+    "When I talk about Americans I usually use 'we' rather than 'they'."
+]
+
+responses = {}
+
+# Create a form so all answers submit at once.
 with st.form("survey_form"):
-    st.header("Basic Demographics")
-    age = st.number_input("Age", min_value=10, max_value=100, value=25)
-    gender = st.selectbox("Gender", ["Male", "Female", "Other", "Prefer not to say"])
-    education = st.selectbox("Highest Education Level", 
-                             ["High School", "Bachelor's Degree", "Master's Degree", "PhD/Doctorate", "Other"])
-    country = st.text_input("Country", value="USA")
-    
-    st.header("Big Five Personality Traits")
-    st.markdown("Please indicate how much you agree or disagree with each statement:")
-    
-    # Create a dictionary to hold responses for each Big Five item
-    responses = {}
-    for key, question in big5_questions.items():
-        responses[key] = st.radio(question, likert_scale, key=key)
-    
-    # Submit button
-    submitted = st.form_submit_button("Submit Survey")
+    for question in survey_questions:
+        # Display each question with horizontal radio buttons
+        user_choice = st.radio(
+            question,
+            options=likert_options,
+            horizontal=True,
+            key=question  # unique key
+        )
+        # Convert from label to numeric
+        numeric_value = likert_map[user_choice]
+        responses[question] = numeric_value
+
+    submitted = st.form_submit_button("Submit")
 
 # --- HANDLE FORM SUBMISSION ---
 if submitted:
-    # Get current timestamp
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Prepare the data row: timestamp, demographics, then Big Five responses sorted by key
-    row = [timestamp, age, gender, education, country]
-    for key in sorted(big5_questions.keys()):
-        row.append(responses[key])
-    
-    # Append the new row to the Google Sheet
-    sheet.append_row(row)
-    
-    st.success("Thank you! Your survey responses have been recorded.")
+
+    # Prepare row: [timestamp, name, age, country, q1_value, q2_value, ...]
+    row_data = [timestamp, name, age, country]
+    for q in survey_questions:
+        row_data.append(responses[q])
+
+    # Append to Google Sheet
+    sheet.append_row(row_data)
+
+    st.success("Thank you! Your responses have been recorded.")
+    st.balloons()
+
+# --- FOOTER ---
+st.markdown("---")
+st.markdown("### **Gabriele Di Cicco, PhD in Social Psychology**")
+st.markdown("""
+[GitHub](https://github.com/gdc0000) | 
+[ORCID](https://orcid.org/0000-0002-1439-5790) | 
+[LinkedIn](https://www.linkedin.com/in/gabriele-di-cicco-124067b0/)
+""")
