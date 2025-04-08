@@ -7,7 +7,6 @@ from datetime import datetime
 # PAGE CONFIGURATION
 # --------------------------
 st.set_page_config(page_title="Survey: Big Five Personality Items", page_icon=":bar_chart:")
-
 st.title("Survey: Big Five Personality Items")
 
 # --------------------------
@@ -26,34 +25,18 @@ sheet = client.open("Survey Responses").sheet1
 st.markdown("### Demographics")
 
 age = st.number_input("Age", min_value=10, max_value=100, value=25)
-
-gender = st.radio(
-    "Gender",
-    options=["Male", "Female", "Other", "Prefer not to say"],
-    index=0
-)
-
+gender = st.radio("Gender", options=["Male", "Female", "Other", "Prefer not to say"], index=0)
 country = st.text_input("Country of Residence", value="USA")
-
 education = st.selectbox(
     "Highest Education Level",
     options=["High School", "Associate Degree", "Bachelor's Degree", "Master's Degree", "Doctorate", "Other"]
 )
-
 employment = st.selectbox(
     "Employment Status",
     options=["Employed Full-Time", "Employed Part-Time", "Self-Employed", "Student", "Unemployed", "Retired", "Other"]
 )
-
-income = st.selectbox(
-    "Annual Income Range",
-    options=["< $25,000", "$25,000 - $50,000", "$50,000 - $100,000", ">$100,000"]
-)
-
-ethnicity = st.selectbox(
-    "Ethnicity",
-    options=["Hispanic or Latino", "Not Hispanic or Latino", "Prefer not to say", "Other"]
-)
+income = st.selectbox("Annual Income Range", options=["< $25,000", "$25,000 - $50,000", "$50,000 - $100,000", ">$100,000"])
+ethnicity = st.selectbox("Ethnicity", options=["Hispanic or Latino", "Not Hispanic or Latino", "Prefer not to say", "Other"])
 
 st.markdown("---")
 
@@ -87,11 +70,23 @@ dropdown_options = [
     "7 (Strongly agree)"
 ]
 
-# Use a form to group all the personality items for submission
+# --------------------------
+# ADD COLUMN NAMES AS HEADER IF THE SHEET IS EMPTY
+# --------------------------
+# Construct the header list.
+header = ["Timestamp", "Age", "Gender", "Country", "Education", "Employment", "Income", "Ethnicity"] + \
+         [f"{domain}: {question}" for domain, question in personality_questions]
+
+# Check if the first row is empty (i.e., sheet has no data).
+if not sheet.get_all_values():
+    sheet.insert_row(header, index=1)
+
+# --------------------------
+# BUILD AND DISPLAY THE SURVEY FORM
+# --------------------------
 with st.form("survey_form"):
     responses = {}
     for domain, question in personality_questions:
-        # Each question is labeled with its corresponding domain.
         key_label = f"{domain}: {question}"
         responses[key_label] = st.selectbox(key_label, dropdown_options, key=question)
     
@@ -101,15 +96,11 @@ with st.form("survey_form"):
 # HANDLE FORM SUBMISSION
 # --------------------------
 if submitted:
-    # Get the current timestamp (for record keeping)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Build the row to send to Google Sheets.
-    # Ensure the sheet columns match the order below:
-    # Timestamp, Age, Gender, Country, Education, Employment, Income, Ethnicity, [Personality Item Responses...]
+    # Build the row to send to Google Sheets:
     row_data = [timestamp, age, gender, country, education, employment, income, ethnicity]
     
-    # Convert selected dropdown options to numeric values for each personality item
+    # Convert selected dropdown options to numeric values
     for domain, question in personality_questions:
         key_label = f"{domain}: {question}"
         numeric_value = int(responses[key_label].split()[0])
