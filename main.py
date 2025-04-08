@@ -3,36 +3,29 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="Identity Survey", page_icon=":bar_chart:")
+# --------------------------
+# PAGE CONFIGURATION
+# --------------------------
+st.set_page_config(page_title="Survey: Big Five", page_icon=":bar_chart:")
 
-# --- CUSTOM CSS FOR A MATRIX-STYLE LOOK ---
-# This helps reduce default padding/margins around each radio and question.
-st.markdown("""
-<style>
-/* Remove extra spacing between blocks */
-[data-testid="stBlock"] { margin: 0; padding: 0; }
+st.title("Survey: Big Five Personality Items")
 
-/* Make radio buttons appear more “matrix-like” */
-div[role="radiogroup"] {
-    display: flex !important;
-    gap: 20px !important;
-    margin-top: -8px !important;
-    margin-bottom: -8px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# --- GOOGLE SHEETS SETUP ---
+# --------------------------
+# SET UP GOOGLE SHEETS ACCESS
+# --------------------------
+# Define the scope for using the Google Sheets and Drive APIs
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = st.secrets["google_sheets"]  # Make sure you have your credentials in Streamlit secrets
+
+# Load credentials from Streamlit secrets (stored securely in .streamlit/secrets.toml on Streamlit Cloud)
+creds_dict = st.secrets["google_sheets"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Survey Responses").sheet1  # ← Update with your actual sheet name if different
+# Replace "Survey Responses" with your actual Google Sheet name.
+sheet = client.open("Survey Responses").sheet1
 
-# --- DEMOGRAPHICS ---
-st.title("Identity Survey")
-
+# --------------------------
+# DEMOGRAPHICS SECTION
+# --------------------------
 st.markdown("### Demographics")
 name = st.text_input("Your Name (Optional)")
 age = st.number_input("Age", min_value=10, max_value=100, value=25)
@@ -40,88 +33,74 @@ country = st.text_input("Country of Residence", value="USA")
 
 st.markdown("---")
 
-# --- 7-POINT LIKERT SCALE ---
-# Show numeric values (1–7), but we’ll add short text for clarity.
-scale_options = [
-    "1 (Strongly Disagree)",
-    "2",
-    "3",
-    "4 (Neither)",
-    "5",
-    "6",
-    "7 (Strongly Agree)"
-]
+# --------------------------
+# SURVEY QUESTIONS (Big Five Items)
+# --------------------------
+st.markdown("### Please indicate your level of agreement for each statement:")
 
-# We’ll map each selected string to a numeric value:
-scale_map = {
-    "1 (Strongly Disagree)": 1,
-    "2": 2,
-    "3": 3,
-    "4 (Neither)": 4,
-    "5": 5,
-    "6": 6,
-    "7 (Strongly Agree)": 7
-}
-
+# Define the survey questions (each statement will be one row)
 survey_questions = [
     "I love the United States.",
     "Being an American is an important part of my identity.",
     "It is important to me to contribute to the United States.",
     "It is important to me to view myself as an American.",
     "I am strongly committed to the United States.",
-    "It is important to me that everyone will see me as an American.",
+    "It is important to me that everyone sees me as an American.",
     "It is important for me to serve my country.",
     "When I talk about Americans I usually use 'we' rather than 'they'."
 ]
 
-# We'll store the results in a dict
+# Define the dropdown options:
+# Options 1 and 7 include labels; the middle numbers are displayed as numbers only.
+dropdown_options = [
+    "1 (Strongly disagree)",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7 (Strongly agree)"
+]
+
+# Initialize a dictionary to store each response
 responses = {}
 
-# Use a form so that everything is submitted at once
+# Build a form so all responses are submitted at once
 with st.form("survey_form"):
-    st.markdown("### Please rate how much you agree or disagree with each statement:")
-    
-    # We'll present each question as a "row":
     for question in survey_questions:
-        # Create one row with 2 columns:
-        #   col[0] = question text
-        #   col[1] = horizontal radio
-        row = st.columns([3, 5])  # adjust proportions as needed
-        
-        with row[0]:
-            st.write(question)
-        
-        with row[1]:
-            choice_label = st.radio(
-                label="",              # Hide label; we already printed question
-                options=scale_options, # 7 options
-                key=question,          # unique key
-                horizontal=True        # show side-by-side
-            )
-            numeric_value = scale_map[choice_label]
-            responses[question] = numeric_value
+        # For each question, show the statement and a dropdown (selectbox).
+        # The key ensures Streamlit can keep track of each element uniquely.
+        responses[question] = st.selectbox(question, dropdown_options, key=question)
     
-    # Submit button
-    submitted = st.form_submit_button("Submit")
+    submitted = st.form_submit_button("Submit Survey")
 
-# --- HANDLE FORM SUBMISSION ---
+# --------------------------
+# HANDLE FORM SUBMISSION
+# --------------------------
 if submitted:
+    # Get the current timestamp (for record keeping)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Build row data for Google Sheets:
-    # [timestamp, name, age, country, Q1_value, Q2_value, ...]
+    # Build a row to send to Google Sheets:
+    # Here we store: timestamp, demographics, then each survey response as a numeric value.
     row_data = [timestamp, name, age, country]
     
-    for q in survey_questions:
-        row_data.append(responses[q])
+    # Convert the selected dropdown options to numeric values:
+    for question in survey_questions:
+        # We assume that the number is the first character in the string.
+        # For example: "1 (Strongly disagree)" → 1, "7 (Strongly agree)" → 7.
+        numeric_value = int(responses[question].split()[0])
+        row_data.append(numeric_value)
     
-    # Append new row in the sheet
+    # Append the new row to the Google Sheet.
     sheet.append_row(row_data)
     
     st.success("Thank you! Your responses have been recorded.")
     st.balloons()
 
-# --- FOOTER ---
+# --------------------------
+# FOOTER WITH PROFESSIONAL REFERENCES
+# --------------------------
 st.markdown("---")
 st.markdown("### **Gabriele Di Cicco, PhD in Social Psychology**")
 st.markdown("""
