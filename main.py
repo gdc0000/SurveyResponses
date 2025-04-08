@@ -27,7 +27,6 @@ sheet = client.open("Survey Responses").sheet1
 # DEMOGRAPHICS SECTION
 # --------------------------
 st.markdown("### Demographics")
-name = st.text_input("Your Name (Optional)")
 age = st.number_input("Age", min_value=10, max_value=100, value=25)
 country = st.text_input("Country of Residence", value="USA")
 
@@ -83,7 +82,7 @@ if submitted:
     
     # Build a row to send to Google Sheets:
     # Here we store: timestamp, demographics, then each survey response as a numeric value.
-    row_data = [timestamp, name, age, country]
+    row_data = [timestamp, age, country]
     
     # Convert the selected dropdown options to numeric values:
     for question in survey_questions:
